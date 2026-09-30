@@ -1,0 +1,43 @@
+  {
+    "mcpServers": {
+      "blender": {
+        "type": "stdio",
+        "command": "/opt/homebrew/bin/uvx",
+        "args": [
+          "--from",
+          "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp",
+          "blender-mcp"
+        ]
+      },
+      "xcode": {
+        "type": "stdio",
+        "command": "xcrun",
+        "args": [
+          "mcpbridge"
+        ]
+      },
+      "chrome-devtools": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "chrome-devtools-mcp@latest",
+          "--autoConnect"
+        ]
+      },
+      "context7": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@upstash/context7-mcp@latest"
+        ]
+      },
+      "codegraph": {
+        "type": "stdio",
+        "command": "codegraph",
+        "args": [
+          "serve",
+          "--mcp"
+        ]
+      }
+    }
+  }
