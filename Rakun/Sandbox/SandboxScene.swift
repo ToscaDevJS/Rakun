@@ -17,12 +17,15 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
         var position = SIMD2<Float>(0, 0)
         var speed: Float = 0
         var isDead = false
+        /// Fotogramas por segundo reales, medidos en el hilo de render.
+        var fps = 0
     }
 
     private nonisolated struct Input: Sendable {
         var stick = SIMD2<Float>(0, 0)
         var aimsAtTarget = false
         var zoomedIn = false
+        var soundEnabled = true
         var triggers: [RaccoonAnimation] = []
         var resetRequested = false
     }
@@ -30,6 +33,7 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
     let scene = SCNScene()
     let cameraNode = SCNNode()
     let character: RaccoonCharacter
+    let audio: SandboxAudio
     let map: SandboxMap
     private(set) var simulation = RaccoonSimulation()
 
@@ -40,6 +44,12 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
     private var lastTime: TimeInterval?
     private var lastHUD: HUD?
     private var hudCooldown: TimeInterval = 0
+    private var fps = 0
+    private var fpsFrames = 0
+    private var fpsWindowStart: TimeInterval?
+    /// Últimos contadores de la simulación a los que ya se les puso sonido.
+    private var soundedFootstep = 0
+    private var soundedAnimation = 0
     private var cameraOffset = SandboxScene.farCamera
 
     private static let farCamera = SIMD3<Float>(0, 6, 4)
@@ -49,10 +59,12 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
     init(map: SandboxMap = .basic, bundle: Bundle = .main) throws {
         self.map = map
         character = try RaccoonCharacter(bundle: bundle)
+        audio = SandboxAudio(bundle: bundle)
         super.init()
         buildMap()
         buildLights()
         buildCamera()
+        cameraNode.addChildNode(audio.node)
         scene.rootNode.addChildNode(character.node)
         character.apply(simulation)
     }
@@ -71,6 +83,10 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
         input.withLock { $0.zoomedIn = zoomedIn }
     }
 
+    func setSoundEnabled(_ enabled: Bool) {
+        input.withLock { $0.soundEnabled = enabled }
+    }
+
     func trigger(_ animation: RaccoonAnimation) {
         input.withLock { $0.triggers.append(animation) }
     }
@@ -85,7 +101,23 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
         // Tope de 1/20 s para que una pausa larga no teletransporte al mapache.
         let dt = min(time - (lastTime ?? time), 0.05)
         lastTime = time
+        measureFPS(at: time)
         step(dt: dt)
+    }
+
+    /// Media de fotogramas en ventanas de medio segundo, para que el número no baile.
+    private func measureFPS(at time: TimeInterval) {
+        guard let start = fpsWindowStart else {
+            fpsWindowStart = time
+            return
+        }
+        fpsFrames += 1
+        let elapsed = time - start
+        if elapsed >= 0.5 {
+            fps = Int((Double(fpsFrames) / elapsed).rounded())
+            fpsFrames = 0
+            fpsWindowStart = time
+        }
     }
 
     /// Avanza la simulación `dt` segundos. Los tests la llaman directamente, sin vista.
@@ -101,6 +133,7 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
         for animation in frame.triggers { simulation.trigger(animation) }
         simulation.step(dt: dt, stick: frame.stick, aimTarget: frame.aimsAtTarget ? map.target : nil, map: map)
         character.apply(simulation)
+        playSounds(enabled: frame.soundEnabled)
 
         // La cámara sigue al mapache con un poco de retardo.
         let blend = Float(min(dt * 6, 1))
@@ -112,10 +145,26 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
         publishHUD(dt: dt)
     }
 
+    private func playSounds(enabled: Bool) {
+        audio.isEnabled = enabled
+        if simulation.footstepSerial != soundedFootstep {
+            soundedFootstep = simulation.footstepSerial
+            audio.play(.footstep)
+        }
+        if simulation.animationSerial != soundedAnimation {
+            soundedAnimation = simulation.animationSerial
+            // Al cambiar de animación se corta lo que quedara de la recarga o la victoria.
+            audio.stopLongSound()
+            if let sound = RaccoonSound(startOf: simulation.animation) {
+                audio.play(sound)
+            }
+        }
+    }
+
     private func publishHUD(dt: TimeInterval) {
         hudCooldown -= dt
         let hud = HUD(animation: simulation.animation, position: simulation.position,
-                      speed: simulation.speed, isDead: simulation.isDead)
+                      speed: simulation.speed, isDead: simulation.isDead, fps: fps)
         guard hud != lastHUD, hudCooldown <= 0 || hud.animation != lastHUD?.animation else { return }
         lastHUD = hud
         hudCooldown = 0.1

@@ -51,6 +51,22 @@ nonisolated enum RaccoonAnimation: String, CaseIterable, Sendable, Identifiable 
         }
     }
 
+    /// Duración del ciclo y momentos (en segundos desde su inicio) en que un pie toca el suelo.
+    /// Medido en Blender sobre los originales, con la altura de `LeftToeBase` y `RightToeBase`.
+    var footsteps: (cycle: TimeInterval, contacts: [TimeInterval])? {
+        switch self {
+        case .run: (22.0 / 30, [0.233, 0.633])
+        case .walk: (41.0 / 30, [0.4, 1.15])
+        case .runBackward: (16.0 / 30, [0.133, 0.4])
+        // Usa `rifle-strafe-right.fbx` (ver `resourceName`). Apenas levanta los pies (2-4 cm),
+        // así que los contactos son aproximados.
+        case .strafeLeft: (16.0 / 30, [0.17, 0.43])
+        // Usa `rifle-strafe-left.fbx`.
+        case .strafeRight: (20.0 / 30, [0.25, 0.567])
+        default: nil
+        }
+    }
+
     var title: String {
         switch self {
         case .idle: "Quieto"

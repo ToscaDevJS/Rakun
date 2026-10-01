@@ -36,7 +36,11 @@ nonisolated struct RaccoonSimulation: Sendable {
     private(set) var animation: RaccoonAnimation = .idle
     /// Cambia cada vez que hay que (re)lanzar `animation`, aunque sea la misma (p. ej. dos disparos).
     private(set) var animationSerial = 0
+    /// Aumenta en uno cada vez que un pie toca el suelo; quien pone el sonido solo mira si cambia.
+    private(set) var footstepSerial = 0
     private(set) var isDead = false
+    /// Segundos que lleva puesta la animación actual.
+    private var animationTime: TimeInterval = 0
 
     private var action: RaccoonAnimation?
     private var actionRemaining: TimeInterval = 0
@@ -65,10 +69,12 @@ nonisolated struct RaccoonSimulation: Sendable {
 
     mutating func reset() {
         let serial = animationSerial
+        let footsteps = footstepSerial
         let tuning = tuning
         self = RaccoonSimulation()
         self.tuning = tuning
         animationSerial = serial + 1
+        footstepSerial = footsteps
     }
 
     /// - Parameters:
@@ -76,6 +82,8 @@ nonisolated struct RaccoonSimulation: Sendable {
     ///   - aimTarget: si no es `nil`, el mapache mira siempre a ese punto y se mueve de lado o de espaldas.
     mutating func step(dt: TimeInterval, stick: SIMD2<Float>, aimTarget: SIMD2<Float>?, map: SandboxMap) {
         guard !isDead else { return }
+
+        advanceFootsteps(dt: dt)
 
         if action != nil {
             actionRemaining -= dt
@@ -143,5 +151,19 @@ nonisolated struct RaccoonSimulation: Sendable {
         guard new != animation || restart else { return }
         animation = new
         animationSerial += 1
+        animationTime = 0
+    }
+
+    /// Avanza el reloj de la animación que se ha estado viendo durante `dt` y cuenta los
+    /// contactos de pie que han caído en ese tramo, incluidas las vueltas del bucle.
+    private mutating func advanceFootsteps(dt: TimeInterval) {
+        let previous = animationTime
+        animationTime += dt
+        guard let footsteps = animation.footsteps else { return }
+        for contact in footsteps.contacts {
+            let before = ((previous - contact) / footsteps.cycle).rounded(.down)
+            let after = ((animationTime - contact) / footsteps.cycle).rounded(.down)
+            footstepSerial += Int(after - before)
+        }
     }
 }

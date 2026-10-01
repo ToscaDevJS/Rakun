@@ -142,6 +142,59 @@ struct RaccoonSimulationTests {
         #expect(raccoon.animation == .run)
     }
 
+    /// Contactos de pie medidos en Blender: corriendo, a los 0,233 y 0,633 s de cada ciclo.
+    @Test func losPasosSiguenALosPiesAlCorrer() {
+        var raccoon = RaccoonSimulation()
+        raccoon.run(0.2, stick: SIMD2(0, 1), map: emptyMap)
+        #expect(raccoon.footstepSerial == 0)
+        raccoon.run(0.1, stick: SIMD2(0, 1), map: emptyMap)
+        #expect(raccoon.footstepSerial == 1)
+        raccoon.run(0.6, stick: SIMD2(0, 1), map: emptyMap)
+        #expect(raccoon.footstepSerial == 2)
+        // Segunda vuelta del bucle (0,733 s por ciclo).
+        raccoon.run(0.9, stick: SIMD2(0, 1), map: emptyMap)
+        #expect(raccoon.footstepSerial == 5)
+    }
+
+    @Test func andandoDaMenosPasosQueCorriendo() {
+        var raccoon = RaccoonSimulation()
+        raccoon.run(1.3, stick: SIMD2(0.4, 0), map: emptyMap)
+        #expect(raccoon.animation == .walk)
+        #expect(raccoon.footstepSerial == 2)
+    }
+
+    @Test func sinMoverseNoHayPasos() {
+        var raccoon = RaccoonSimulation()
+        raccoon.run(2, map: emptyMap)
+        raccoon.trigger(.reload)
+        raccoon.run(2, map: emptyMap)
+        raccoon.trigger(.death)
+        raccoon.run(2, stick: SIMD2(1, 0), map: emptyMap)
+        #expect(raccoon.footstepSerial == 0)
+    }
+
+    @Test func reiniciarNoPierdeLaCuentaDePasos() {
+        var raccoon = RaccoonSimulation()
+        raccoon.run(1, stick: SIMD2(0, 1), map: emptyMap)
+        let steps = raccoon.footstepSerial
+        raccoon.reset()
+        #expect(raccoon.footstepSerial == steps)
+    }
+
+    @Test(arguments: [
+        (RaccoonAnimation.fire, RaccoonSound.shot), (.reload, .reload), (.hit, .hit),
+        (.death, .death), (.victory, .victory),
+    ])
+    func cadaAccionTieneSuSonido(animation: RaccoonAnimation, sound: RaccoonSound) {
+        #expect(RaccoonSound(startOf: animation) == sound)
+    }
+
+    @Test func elMovimientoNoDisparaSonidosDeAccion() {
+        for animation in RaccoonAnimation.allCases where animation.loops && animation != .victory {
+            #expect(RaccoonSound(startOf: animation) == nil)
+        }
+    }
+
     @Test func laVistaPreviaSeCancelaAlMoverse() {
         var raccoon = RaccoonSimulation()
         raccoon.trigger(.victory)
@@ -187,6 +240,46 @@ struct RaccoonAssetTests {
             bones = max(bones, node.skinner?.bones.count ?? 0)
         }
         #expect(bones == 57)
+    }
+}
+
+struct RaccoonAudioTests {
+
+    @Test(arguments: RaccoonSound.allCases)
+    func estanTodosLosArchivosDeSonido(sound: RaccoonSound) {
+        for name in sound.fileNames {
+            #expect(Bundle.main.url(forResource: name, withExtension: "wav") != nil, "falta \(name).wav")
+        }
+    }
+
+    @Test func estanElAmbienteYLaMusica() {
+        for loop in SandboxAudio.loopFiles {
+            #expect(Bundle.main.url(forResource: loop.name, withExtension: "wav") != nil, "falta \(loop.name).wav")
+        }
+    }
+
+    @Test func correrSuenaAPasosYDispararADisparo() throws {
+        let sandbox = try SandboxScene()
+        sandbox.setStick(SIMD2(0, 1))
+        for _ in 0..<60 { sandbox.step(dt: frame) }
+        // 0,233 y 0,633 s del primer ciclo y 0,967 s del segundo.
+        #expect(sandbox.audio.playCounts[.footstep] == 3)
+
+        sandbox.trigger(.fire)
+        sandbox.step(dt: frame)
+        sandbox.trigger(.fire)
+        sandbox.step(dt: frame)
+        #expect(sandbox.audio.playCounts[.shot] == 2)
+        #expect(sandbox.audio.playCounts[.reload] == nil)
+    }
+
+    @Test func enSilencioNoSuenaNada() throws {
+        let sandbox = try SandboxScene()
+        sandbox.setSoundEnabled(false)
+        sandbox.setStick(SIMD2(0, 1))
+        sandbox.trigger(.hit)
+        for _ in 0..<120 { sandbox.step(dt: frame) }
+        #expect(sandbox.audio.playCounts.isEmpty)
     }
 }
 
