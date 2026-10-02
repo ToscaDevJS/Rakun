@@ -17,6 +17,8 @@ final class SandboxModel {
     /// Panel de estadísticas de SceneKit: triángulos, llamadas de dibujo y reparto del tiempo.
     var showsStatistics = false
     var soundEnabled = true { didSet { sandbox?.setSoundEnabled(soundEnabled) } }
+    /// Dispara sin parar, como hará el juego: sirve para ver las animaciones de disparar en marcha.
+    var autoFire = false { didSet { sandbox?.setAutoFire(autoFire) } }
 
     init() {
         do {
@@ -129,6 +131,9 @@ struct SandboxView: View {
                 .tint(.orange)
             Button("Recargar") { sandbox.trigger(.reload) }
                 .tint(.blue)
+            Toggle("Fuego auto", isOn: $model.autoFire)
+                .toggleStyle(.button)
+                .tint(.red)
             Button("Disparar") { sandbox.trigger(.fire) }
                 .tint(.red)
                 .controlSize(.large)

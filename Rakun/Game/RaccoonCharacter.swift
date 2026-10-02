@@ -47,6 +47,7 @@ nonisolated final class RaccoonCharacter {
             clip.fillsForward = !animation.loops
 
             let player = SCNAnimationPlayer(animation: clip)
+            player.speed = CGFloat(animation.playbackRate)
             rig.addAnimationPlayer(player, forKey: animation.rawValue)
             player.stop()
             players[animation] = player

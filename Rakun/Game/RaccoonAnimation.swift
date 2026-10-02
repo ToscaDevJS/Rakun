@@ -5,7 +5,7 @@
 
 import Foundation
 
-/// Las 11 animaciones del mapache. Cada una vive en su propio USDZ (`raccoon_<rawValue>.usdz`).
+/// Las animaciones del mapache. Cada una vive en su propio USDZ (`raccoon_<rawValue>.usdz`).
 nonisolated enum RaccoonAnimation: String, CaseIterable, Sendable, Identifiable {
     case idle
     case run
@@ -13,6 +13,8 @@ nonisolated enum RaccoonAnimation: String, CaseIterable, Sendable, Identifiable 
     case walk
     case strafeLeft = "strafe_left"
     case strafeRight = "strafe_right"
+    case walkFire = "walk_fire"
+    case runFire = "run_fire"
     case fire
     case reload
     case hit
@@ -51,6 +53,21 @@ nonisolated enum RaccoonAnimation: String, CaseIterable, Sendable, Identifiable 
         }
     }
 
+    /// Variante de este paso en la que el mapache dispara sin dejar de avanzar.
+    var firingVariant: RaccoonAnimation? {
+        switch self {
+        case .walk: .walkFire
+        case .run: .runFire
+        default: nil
+        }
+    }
+
+    /// Velocidad de reproducción. El original de `run_fire` avanza a 0,84 m/s y el mapache
+    /// corre a 1,28 m/s: se acelera en esa proporción para que los pies no patinen.
+    var playbackRate: Double {
+        self == .runFire ? 1.52 : 1
+    }
+
     /// Duración del ciclo y momentos (en segundos desde su inicio) en que un pie toca el suelo.
     /// Medido en Blender sobre los originales, con la altura de `LeftToeBase` y `RightToeBase`.
     var footsteps: (cycle: TimeInterval, contacts: [TimeInterval])? {
@@ -58,6 +75,8 @@ nonisolated enum RaccoonAnimation: String, CaseIterable, Sendable, Identifiable 
         case .run: (22.0 / 30, [0.233, 0.633])
         case .walk: (41.0 / 30, [0.4, 1.15])
         case .runBackward: (16.0 / 30, [0.133, 0.4])
+        case .walkFire: (40.0 / 30, [0.4, 1.133])
+        case .runFire: (28.0 / 30, [0.267, 0.767])
         // Usa `rifle-strafe-right.fbx` (ver `resourceName`). Apenas levanta los pies (2-4 cm),
         // así que los contactos son aproximados.
         case .strafeLeft: (16.0 / 30, [0.17, 0.43])
@@ -75,6 +94,8 @@ nonisolated enum RaccoonAnimation: String, CaseIterable, Sendable, Identifiable 
         case .walk: "Andar"
         case .strafeLeft: "Lateral izq."
         case .strafeRight: "Lateral der."
+        case .walkFire: "Andar disp."
+        case .runFire: "Correr disp."
         case .fire: "Disparar"
         case .reload: "Recargar"
         case .hit: "Daño"

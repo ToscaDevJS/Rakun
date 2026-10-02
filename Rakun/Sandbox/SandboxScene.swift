@@ -26,6 +26,7 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
         var aimsAtTarget = false
         var zoomedIn = false
         var soundEnabled = true
+        var autoFire = false
         var triggers: [RaccoonAnimation] = []
         var resetRequested = false
     }
@@ -49,6 +50,7 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
     private var fpsWindowStart: TimeInterval?
     /// Últimos contadores de la simulación a los que ya se les puso sonido.
     private var soundedFootstep = 0
+    private var soundedShot = 0
     private var soundedAnimation = 0
     private var cameraOffset = SandboxScene.farCamera
 
@@ -85,6 +87,10 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
 
     func setSoundEnabled(_ enabled: Bool) {
         input.withLock { $0.soundEnabled = enabled }
+    }
+
+    func setAutoFire(_ autoFire: Bool) {
+        input.withLock { $0.autoFire = autoFire }
     }
 
     func trigger(_ animation: RaccoonAnimation) {
@@ -131,7 +137,8 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
 
         if frame.resetRequested { simulation.reset() }
         for animation in frame.triggers { simulation.trigger(animation) }
-        simulation.step(dt: dt, stick: frame.stick, aimTarget: frame.aimsAtTarget ? map.target : nil, map: map)
+        simulation.step(dt: dt, stick: frame.stick, aimTarget: frame.aimsAtTarget ? map.target : nil,
+                        firing: frame.autoFire, map: map)
         character.apply(simulation)
         playSounds(enabled: frame.soundEnabled)
 
@@ -150,6 +157,10 @@ nonisolated final class SandboxScene: NSObject, SCNSceneRendererDelegate, @unche
         if simulation.footstepSerial != soundedFootstep {
             soundedFootstep = simulation.footstepSerial
             audio.play(.footstep)
+        }
+        if simulation.shotSerial != soundedShot {
+            soundedShot = simulation.shotSerial
+            audio.play(.shot)
         }
         if simulation.animationSerial != soundedAnimation {
             soundedAnimation = simulation.animationSerial

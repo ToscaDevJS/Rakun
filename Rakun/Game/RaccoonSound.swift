@@ -47,11 +47,11 @@ nonisolated enum RaccoonSound: String, CaseIterable, Sendable {
         }
     }
 
-    /// Sonido que acompaña al arranque de una animación. Los pasos no van aquí: los marca
-    /// `RaccoonSimulation.footstepSerial` cada vez que un pie toca el suelo.
+    /// Sonido que acompaña al arranque de una animación. Los pasos y los disparos no van aquí:
+    /// los marcan `footstepSerial` y `shotSerial` de `RaccoonSimulation`, porque suenan varias
+    /// veces dentro de una misma animación en bucle.
     init?(startOf animation: RaccoonAnimation) {
         switch animation {
-        case .fire: self = .shot
         case .reload: self = .reload
         case .hit: self = .hit
         case .death: self = .death
