@@ -11,15 +11,25 @@ nonisolated final class RaccoonCharacter {
     nonisolated enum LoadError: Error {
         case missingResource(String)
         case missingAnimation(String)
+        case missingBone(String)
     }
 
     /// Nodo que mueve el juego: origen en los pies, mira hacia +Z.
     let node = SCNNode()
+    /// El rifle: origen en la empuñadura, el cañón hacia su +Z. Cuelga del hueso de la mano.
+    let weapon = SCNNode()
     private(set) var players: [RaccoonAnimation: SCNAnimationPlayer] = [:]
     private(set) var current: RaccoonAnimation?
     private var appliedSerial: Int?
 
     static let blendDuration: TimeInterval = 0.15
+
+    /// Dónde va el arma dentro de la mano derecha. Lo calcula `game-assets/tools/fit_rifle.swift`
+    /// sobre la pose de apuntar: es un término medio entre apuntar recto y llegar a la mano
+    /// izquierda, que por la anchura del mapache queda 30° hacia su izquierda.
+    static let weaponBone = "mixamorig_RightHand"
+    static let weaponPosition = SIMD3<Float>(-0.0209, 0.0770, 0.0053)
+    static let weaponOrientation = simd_quatf(ix: -0.2511, iy: -0.5951, iz: -0.4306, r: 0.6304)
 
     init(bundle: Bundle = .main) throws {
         let model = try Self.loadScene("raccoon", bundle: bundle)
@@ -52,6 +62,18 @@ nonisolated final class RaccoonCharacter {
             player.stop()
             players[animation] = player
         }
+
+        // El arma no va dentro del modelo: se cuelga de la mano para poder cambiarla.
+        guard let hand = model.rootNode.childNode(withName: Self.weaponBone, recursively: true) else {
+            throw LoadError.missingBone(Self.weaponBone)
+        }
+        weapon.name = "rifle"
+        for child in try Self.loadScene("rifle", bundle: bundle).rootNode.childNodes {
+            weapon.addChildNode(child)
+        }
+        weapon.simdPosition = Self.weaponPosition
+        weapon.simdOrientation = Self.weaponOrientation
+        hand.addChildNode(weapon)
 
         for child in model.rootNode.childNodes {
             node.addChildNode(child)

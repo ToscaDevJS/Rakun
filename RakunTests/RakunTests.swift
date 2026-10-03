@@ -322,6 +322,34 @@ struct RaccoonAssetTests {
         }
         #expect(bones == 57)
     }
+
+    @Test func llevaElRifleEnLaManoDerecha() throws {
+        let raccoon = try RaccoonCharacter()
+        #expect(raccoon.weapon.parent?.name == "mixamorig_RightHand")
+
+        var triangles = 0
+        raccoon.weapon.enumerateHierarchy { node, _ in
+            triangles += node.geometry?.elements.reduce(0) { $0 + $1.primitiveCount } ?? 0
+        }
+        #expect((3000...5000).contains(triangles))
+
+        // Mide 0,56 m de la culata (detrás de la empuñadura) a la boca del cañón (delante).
+        let (low, high) = raccoon.weapon.boundingBox
+        #expect(abs(Double(high.z - low.z) - 0.56) < 0.02)
+        #expect(low.z < -0.1 && high.z > 0.35)
+    }
+
+    /// El modelo se carga en la pose de apuntar: ahí el cañón tiene que mirar hacia delante,
+    /// algo hacia la izquierda del mapache (para llegar a la otra mano) y un poco hacia abajo.
+    @Test func elRifleApuntaHaciaDelante() throws {
+        let raccoon = try RaccoonCharacter()
+        let barrel = simd_normalize(raccoon.weapon.simdConvertVector(SIMD3(0, 0, 1), to: raccoon.node))
+        let top = simd_normalize(raccoon.weapon.simdConvertVector(SIMD3(0, 1, 0), to: raccoon.node))
+        #expect(barrel.z > 0.9)
+        #expect(barrel.x > 0.1 && barrel.x < 0.4)
+        #expect(barrel.y < 0 && barrel.y > -0.25)
+        #expect(top.y > 0.9)
+    }
 }
 
 struct RaccoonAudioTests {
